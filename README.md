@@ -83,7 +83,7 @@ ClusterDojo never touches other kind clusters on your machine. It only uses the 
 - You start on `student@base`. Each task shows the instance to use: `ssh dojo1` … `ssh dojo4`, workers as `ssh dojo1-node1`, `dojo1-node2`, `dojo2-node1`, `dojo3-node1`.
 - On every instance: `sudo -i` for root, `k` = kubectl with completion, vim with 2-space indent.
 - Answer files go to `/home/student/answers/<task>/` on the instance the task names, e.g. `/home/student/answers/m1-06/`.
-- **Clipboard:** copy from the task and paste into the terminal with **Ctrl+Shift+V**, the same on every OS, also on macOS (Ctrl, not Cmd). **Right-click → Paste** works too and needs no browser permission. Ctrl+V and Cmd+V don't paste there. If your browser asks whether `localhost` may read the clipboard, allow it. If the browser can't read the clipboard at all (e.g. a page opened by IP address), Ctrl+Shift+V opens a small paste box: paste into it with Cmd+V / Ctrl+V and the text goes to the terminal.
+- **Clipboard:** copy from the task and paste into the terminal with **Ctrl+Shift+V** on every OS; on macOS **Cmd+Shift+V** works too. **Right-click → Paste** works too and needs no browser permission. Ctrl+V and Cmd+V don't paste there. If your browser asks whether `localhost` may read the clipboard, allow it. If the browser can't read the clipboard at all (e.g. a page opened by IP address), Ctrl+Shift+V opens a small paste box: paste into it with Cmd+V / Ctrl+V and the text goes to the terminal.
 - **Stopwatch** (⏱ bottom left): only the open task counts. Switching pauses it, coming back resumes it. It turns red past the target time. ⏸ pauses, ↺ resets it for that task.
 - **End mock** grades everything. Scores are saved in `exam/results/` as `.md` and `.json`, including the time per task.
 - The clusters stay as they are after grading, so you can keep working on what you missed. **Check this task** then grades just the open task and shows its solution.
@@ -161,7 +161,7 @@ The Helm repository is served by the terminal container.
 
 - **After a Docker restart** the UI is gone: run `start.cmd` / `./start.sh` again. It restarts the clusters and the terminal container. If Pods on one cluster can't reach another node (e.g. `kubectl top` fails or Namespaces hang in `Terminating`), restart kindnet: `kubectl -n kube-system delete pod -l app=kindnet` on that cluster.
 - **The UI keeps saying the mock is being prepared:** the log is in `exam/state/prepare.log`, one log per task in `exam/state/setup-m<N>-*.log`. If the preparation was interrupted (e.g. Docker stopped), delete `exam/state/preparing` and run the start script again.
-- **Paste doesn't work in the terminal:** use Ctrl+Shift+V (also on macOS) or right-click → Paste. Ctrl+Shift+V either pastes the text or opens the paste box. Use Chrome, Edge or Firefox. If neither happens, reload the page with Ctrl+Shift+R / Cmd+Shift+R. After a `git pull`, run the start script again so the terminal loads the current clipboard script.
+- **Paste doesn't work in the terminal:** use Ctrl+Shift+V (macOS: also Cmd+Shift+V) or right-click → Paste. Ctrl+Shift+V either pastes the text or opens the paste box. Use Chrome, Edge or Firefox. If neither happens, reload the page with Ctrl+Shift+R / Cmd+Shift+R. After a `git pull`, run the start script again so the terminal loads the current clipboard script.
 - **Linux: `Permission denied` on files in `exam/`** (written by the container as root, e.g. when it was started without `start.sh`): `sudo chown -R $USER: exam`.
 
 ## Contributing and checking the graders

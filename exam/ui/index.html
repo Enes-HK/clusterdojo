@@ -194,7 +194,7 @@ function renderStart() {
     Answer files go into <code>/home/student/answers/</code> on the instance the task names.
     Docs: kubernetes.io/docs, helm.sh/docs, gateway-api.sigs.k8s.io and the links at the top of each task (open them in another browser tab).</p>
     <p>Clipboard like a remote desktop: copy from the task (select + Ctrl+C, or click a <code>code</code> snippet)
-    and paste into the terminal with <b>Ctrl+Shift+V</b> (also on macOS) or <b>right-click → Paste</b>. Ctrl+V and Cmd+V don't paste there. Text inside the terminal:
+    and paste into the terminal with <b>Ctrl+Shift+V</b> (macOS: also <b>Cmd+Shift+V</b>) or <b>right-click → Paste</b>. Ctrl+V and Cmd+V don't paste there. Text inside the terminal:
     select it, then paste it with the <b>middle mouse button</b>. It never goes to your clipboard.</p>
     <p>Each task has its own stopwatch (⏱ at the bottom). It runs only while that task is open,
     pauses when you switch, and carries on when you come back.</p>
@@ -249,9 +249,23 @@ $('#check').onclick = async () => {
     <details><summary>Solution and explanation</summary>${r.solution}</details>`;
   box.scrollIntoView();
 };
-$('#q').addEventListener('click', e => {
-  if (e.target.tagName === 'CODE') { navigator.clipboard.writeText(e.target.innerText).then(() => toast('Copied')); }
-});
+// click a code snippet to copy it. navigator.clipboard only exists on localhost / https; opened by IP address the
+// older execCommand('copy') still works. If both fail, the snippet is selected for a manual Ctrl+C.
+async function copyText(el) {
+  const t = el.innerText;
+  try { await navigator.clipboard.writeText(t); toast('Copied'); return; } catch (e) {}
+  const ta = Object.assign(document.createElement('textarea'), { value: t });
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+  if (ok) { toast('Copied'); return; }
+  getSelection().selectAllChildren(el);
+  toast(`Couldn't copy, press ${/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? 'Cmd' : 'Ctrl'}+C`, 3000);
+}
+$('#q').addEventListener('click', e => { if (e.target.tagName === 'CODE') copyText(e.target); });
 $('#btnEnd').onclick = async () => {
   if (!confirm('End this mock now and grade it?')) return;
   exam.state = await api('/api/end', 'POST'); await load(); showResults(true);

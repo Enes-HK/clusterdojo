@@ -1,16 +1,20 @@
 // Injected into ttyd's page (entrypoint.sh builds the index with it). Clipboard rules like the exam's remote terminal:
 // - Ctrl+Shift+V pastes the system clipboard (text copied from the question panel), on Windows, Linux and macOS.
+//   On macOS Cmd+Shift+V does the same.
 // - Right-click -> Paste works too (the exam terminal allows its context menu). Ctrl+V / Cmd+V send nothing.
 // - Text selected in the terminal never reaches the system clipboard; the middle mouse button pastes the last selection.
 //
 // Ctrl+Shift+V has three ways to get at the clipboard, tried in this order:
-// 1. The browser's own paste event: Chrome and Edge on Windows/Linux fire one for Ctrl+Shift+V.
-// 2. navigator.clipboard.readText(): for browsers that don't (macOS, Firefox). Only on https or localhost,
-//    and the browser may ask for permission or show its own "Paste" button. Safari isn't supported (README).
+// 1. The browser's own paste event: Chrome and Edge fire one for Ctrl+Shift+V (and for Cmd+Shift+V on macOS).
+//    It can arrive a little after the key, so the other two wait for it first.
+// 2. navigator.clipboard.readText(): for browsers that don't (Firefox). Only on https or localhost, and the browser
+//    may ask for permission or show its own "Paste" button. Safari isn't supported (README).
 // 3. A small paste box over the terminal: paste into it with the system shortcut (Cmd+V / Ctrl+V) and it goes to the
 //    terminal. Always works, e.g. when the exam is opened from another machine by IP address.
+// Whichever comes first wins; one key press never pastes twice.
 (function () {
-  let allowPaste = false, pasted = false, selection = '', box = null;
+  const WAIT_FOR_NATIVE_PASTE = 150;                               // ms
+  let allowPaste = false, pending = false, selection = '', box = null;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
   // Right-click opens the browser's context menu on xterm's input field; its "Paste" fires a normal paste event.
@@ -30,10 +34,15 @@
   document.addEventListener('paste', e => {
     if (box && box.contains(e.target)) return;                    // the paste box handles its own paste
     if (!allowPaste) { e.preventDefault(); e.stopImmediatePropagation(); return; }
-    allowPaste = false; pasted = true;
+    allowPaste = false; pending = false;                           // the browser's paste goes through, nothing else
+    if (box) closeBox(window.term);                                // a late native paste: the box isn't needed any more
   }, true);
 
-  const closeBox = term => { if (box) { box.remove(); box = null; } term.focus(); };
+  const closeBox = term => {
+    pending = false; allowPaste = false;
+    if (box) { box.remove(); box = null; }
+    if (term) term.focus();
+  };
   const openBox = term => {
     if (box) return;
     box = document.createElement('div');
@@ -52,6 +61,7 @@
       if (t) term.paste(t);
     });
     ta.addEventListener('keydown', e => {
+      e.stopPropagation();                                         // keys typed here are not terminal keys
       if (e.key === 'Escape') { e.preventDefault(); closeBox(term); }
       else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const t = ta.value; closeBox(term); if (t) term.paste(t); }
     });
@@ -59,10 +69,13 @@
     ta.focus();
   };
 
+  // no native paste came: read the clipboard, or open the box
   const pasteFromClipboard = term => {
-    allowPaste = false;
+    if (!pending) return;
     if (!window.isSecureContext || !navigator.clipboard || !navigator.clipboard.readText) { openBox(term); return; }
-    navigator.clipboard.readText().then(t => { if (t) term.paste(t); }).catch(() => openBox(term));
+    navigator.clipboard.readText()
+      .then(t => { if (!pending) return; pending = false; allowPaste = false; if (t) term.paste(t); })
+      .catch(() => { if (pending) openBox(term); });
   };
 
   const hook = setInterval(() => {
@@ -71,10 +84,12 @@
     clearInterval(hook);
     term.attachCustomKeyEventHandler(e => {
       const v = e.code === 'KeyV' || e.key.toLowerCase() === 'v', c = e.code === 'KeyC' || e.key.toLowerCase() === 'c';
-      if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && v) {
-        if (e.type === 'keydown' && !e.repeat) {
-          allowPaste = true; pasted = false;
-          setTimeout(() => { if (!pasted) pasteFromClipboard(term); }, 0);     // a native paste event fires before this
+      // Shift+V with exactly one of Ctrl / Cmd; Cmd only counts on macOS (elsewhere it's the Windows/Super key)
+      const pasteKey = v && e.shiftKey && !e.altKey && (e.ctrlKey !== e.metaKey) && (e.ctrlKey || mac);
+      if (pasteKey) {
+        if (e.type === 'keydown' && !e.repeat && !box) {
+          allowPaste = true; pending = true;
+          setTimeout(() => pasteFromClipboard(term), WAIT_FOR_NATIVE_PASTE);
         }
         return false;                                              // xterm itself sends nothing for the key
       }
