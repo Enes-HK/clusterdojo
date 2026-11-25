@@ -1,0 +1,12 @@
+replicaCount: 1
+image:
+  repository: nginx
+  tag: 1-alpine
+service:
+  type: ClusterIP
+  port: 80
+banner: "Hello from webapp"
+resources:
+  requests:
+    cpu: 20m
+    memory: 32Mi

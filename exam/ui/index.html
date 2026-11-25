@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- the page brings its own dark theme (white question block); keeps browser dark-mode tools from re-colouring it -->
+<meta name="color-scheme" content="dark">
+<meta name="darkreader-lock">
+<title>ClusterDojo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #16191d; --panel: #1f2328; --text: #e6e9ed; --muted: #9aa4b1; --border: #343a42;
+    --brand: #1f4e8c; --brand-text: #ffffff; --code-bg: #3a414b; --ok: #3fb950; --bad: #f05d5d;
+    --bar-ok: #2e9d4f; --bar-warn: #e0a800; --bar-late: #e0661b; --flag: #e0a030;
+    /* the question block: white sheet, copyable text on an opaque grey chip */
+    --q-bg: #ffffff; --q-text: #1d232b; --q-muted: #5f6b7a; --q-link: #1f4e8c;
+    --q-code-bg: #dde2e8; --q-code-border: #c3cbd4; --q-code-text: #111820; --q-ok: #1a7f37; --q-bad: #c62828;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
+  header { background: var(--brand); color: var(--brand-text); display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
+  header .spacer { flex: 1; }
+  button { font: inherit; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  button:hover { filter: brightness(0.95); }
+  header button { background: #2f63aa; color: #fff; border-color: #4a7cc0; }
+  button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+  button.danger { background: #8d1f1f; color: #fff; border-color: #a33; }
+  button:disabled { opacity: .5; cursor: default; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #left { width: 34%; min-width: 320px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  #timer { height: 18px; background: #2a2f36; position: relative; }
+  #timer .fill { height: 100%; background: var(--bar-ok); transition: width 1s linear; }
+  #timer .label { position: absolute; inset: 0; text-align: center; font-size: 11px; line-height: 18px; color: #fff; text-shadow: 0 0 2px #000; }
+  .nav { display: flex; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid var(--border); }
+  .nav select { flex: 1; min-width: 0; font: inherit; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--text); }
+  #q { padding: 12px 14px 24px; overflow: auto; flex: 1; background: var(--q-bg); color: var(--q-text); color-scheme: light; }
+  #q a { color: var(--q-link); }
+  #q .docs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  #q .docs a { background: #e8f0fb; color: var(--q-link); text-decoration: none; padding: 2px 8px; border-radius: 3px; font-size: 12px; border: 1px solid #c8d8ef; }
+  #q h2 { font-size: 16px; margin: 0 0 8px; }
+  #q .instance { display: inline-block; margin: 0 0 8px; padding: 2px 8px; border-radius: 3px; background: #eef7ee; border: 1px solid #b9dcb9; font-size: 12.5px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; cursor: copy; }
+  pre { background: var(--code-bg); padding: 10px; border-radius: 4px; overflow: auto; }
+  pre code { padding: 0; background: none; border: 0; }
+  #q code { background: var(--q-code-bg); color: var(--q-code-text); border: 1px solid var(--q-code-border); }
+  #q pre { background: var(--q-code-bg); color: var(--q-code-text); border: 1px solid var(--q-code-border); }
+  #q pre code { background: none; border: 0; }
+  #q .hint { color: var(--q-muted); }
+  #q .ok { color: var(--q-ok); } #q .bad { color: var(--q-bad); }
+  #q table th, #q table td { border-bottom-color: #dde2e8; }
+  blockquote { margin: 10px 0; padding: 6px 12px; background: #fff8e1; color: #1d232b; border-left: 3px solid #e0a800; }
+  .flagbar { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+  .flagged { color: var(--flag); font-weight: 600; }
+  .qtimer { margin-left: auto; display: flex; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .qtimer .t { font-weight: 600; }
+  .qtimer .t.over { color: var(--bad); }
+  .qtimer .t.paused { color: var(--muted); }
+  .qtimer button { padding: 2px 7px; }
+  #right { flex: 1; display: flex; min-width: 0; }
+  #term { flex: 1; border: 0; background: #1e1e1e; }
+  #overlay { position: fixed; inset: 40px 0 0 0; background: var(--bg); overflow: auto; display: none; padding: 20px; }
+  #overlay .wrap { max-width: 1000px; margin: 0 auto; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 14px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .hint { color: var(--muted); font-size: 12px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .big { font-size: 28px; font-weight: 700; }
+  #toast { position: fixed; bottom: 16px; left: 16px; background: #222; color: #fff; padding: 6px 12px; border-radius: 4px; display: none; font-size: 12px; }
+  .center { display: flex; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ClusterDojo</h1>
+  <span id="status"></span>
+  <span class="spacer"></span>
+  <button id="btnAgain" style="display:none"></button>
+  <button id="btnSwitch" style="display:none"></button>
+  <button id="btnResults" style="display:none">Results &amp; solutions</button>
+  <button id="btnEnd" class="danger" style="display:none">End mock</button>
+</header>
+<main>
+  <section id="left">
+    <div id="timer"><div class="fill" style="width:100%"></div><div class="label"></div></div>
+    <div class="nav" id="nav" style="display:none">
+      <button id="prev">&lt;</button>
+      <select id="sel"></select>
+      <button id="next">&gt;</button>
+    </div>
+    <div id="q"></div>
+    <div class="flagbar" id="flagbar" style="display:none"><button id="flag">⚑ Flag this</button><button id="check" style="display:none">Check this task</button><span class="hint" id="flaghint"></span>
+      <span class="qtimer" title="Time spent on this task. It only runs while this task is open."><span class="t" id="qt"></span><button id="qpause" title="Pause / resume this task's timer">⏸</button><button id="qreset" title="Reset this task's timer to 0">↺</button></span></div>
+  </section>
+  <section id="right"><iframe id="term" title="Terminal" allow="clipboard-read; clipboard-write"></iframe></section>
+</main>
+<div id="overlay"><div class="wrap" id="results"></div></div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let exam = null, cur = 0, flags = {};
+const flagKey = () => 'clusterdojo-flags-m' + (exam ? exam.mock : '');
+const loadFlags = () => { try { flags = JSON.parse(localStorage.getItem(flagKey()) || '{}'); } catch (e) { flags = {}; } };
+const saveFlags = () => { try { localStorage.setItem(flagKey(), JSON.stringify(flags)); } catch (e) {} };
+const lbl = q => q.label || 'Task ' + q.n;
+const shortLbl = q => String(q.n);
+const other = () => exam.mocks.find(m => m !== exam.mock) || exam.mock;
+let toastTimer;
+const toast = (t, ms = 1500) => { const el = $('#toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.display = 'none', ms); };
+const api = (p, m = 'GET') => fetch(p, { method: m }).then(r => r.json());
+
+// ?v=: a fresh terminal page on every load, so an update of terminal-clipboard.js is never hidden by the browser cache
+$('#term').src = location.protocol + '//' + location.hostname + ':7681/?v=' + Date.now();
+
+// Per-task stopwatch: only the open task counts; seconds are added up on the server (state/exam-m<mock>.json)
+let qtimes = {}, tActive = null, tMark = 0, tPaused = false;
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const qSpent = n => (qtimes[n] || 0) + (n === tActive && !tPaused ? (Date.now() - tMark) / 1000 : 0);
+const target = q => +((q.html.match(/Target:\s*(\d+)\s*minute/) || [])[1] || 0);
+function flushTime(beacon) {
+  if (tActive === null || tPaused) return;
+  const add = (Date.now() - tMark) / 1000;
+  tMark = Date.now();
+  if (add < 0.5) return;
+  qtimes[tActive] = (qtimes[tActive] || 0) + add;
+  const body = JSON.stringify({ n: tActive, add });
+  if (beacon) navigator.sendBeacon('/api/qtime', body);
+  else fetch('/api/qtime', { method: 'POST', body }).catch(() => {});
+}
+setInterval(() => flushTime(false), 10000);
+addEventListener('pagehide', () => flushTime(true));
+function qtick() {
+  if (tActive === null) return;
+  const q = exam.questions[cur], s = qSpent(q.n), t = target(q), el = $('#qt');
+  el.textContent = '⏱ ' + fmt(s) + (t ? ` / ${t} min` : '');
+  el.className = 't' + (tPaused ? ' paused' : t && s > t * 60 ? ' over' : '');
+  $('#qpause').textContent = tPaused ? '▶' : '⏸';
+}
+$('#qpause').onclick = () => { if (tPaused) { tPaused = false; tMark = Date.now(); } else { flushTime(false); tPaused = true; } qtick(); };
+$('#qreset').onclick = () => {
+  const n = exam.questions[cur].n;
+  if (!confirm(`Reset the timer of ${lbl(exam.questions[cur])} to 0:00?`)) return;
+  qtimes[n] = 0; tMark = Date.now();
+  fetch('/api/qtime', { method: 'POST', body: JSON.stringify({ n, reset: true }) }).catch(() => {});
+  qtick();
+};
+
+async function load() {
+  exam = await api('/api/exam');
+  // while a mock is being prepared, look again every 10 seconds
+  clearTimeout(load.poll);
+  if (exam.preparing) load.poll = setTimeout(load, 10000);
+  loadFlags();
+  exam.offset = exam.now * 1000 - Date.now();
+  qtimes = exam.state.qtimes || {};
+  render();
+}
+
+function started() { return !!exam.state.started_at; }
+function ended() { return !!exam.state.ended_at; }
+
+function render() {
+  const s = started(), e = ended();
+  $('#nav').style.display = s ? 'flex' : 'none';
+  $('#flagbar').style.display = s ? 'flex' : 'none';
+  $('#btnEnd').style.display = s && !e ? '' : 'none';
+  $('#btnResults').style.display = e ? '' : 'none';
+  $('#btnAgain').style.display = e && !exam.preparing ? '' : 'none';
+  $('#btnAgain').textContent = `Mock ${exam.mock} again`;
+  $('#btnSwitch').style.display = (e || !s) && !exam.preparing ? '' : 'none';
+  $('#btnSwitch').textContent = `Switch to Mock ${other()}`;
+  if (!s) return renderStart();
+  show(cur);
+}
+
+function fillSelect() {
+  $('#sel').innerHTML = exam.questions.map((q, i) => { const s = qSpent(q.n);
+    return `<option value="${i}">${flags[q.n] ? '⚑ ' : ''}${lbl(q)} | ${q.title}${s >= 1 ? ` (${fmt(s)})` : ''}</option>`; }).join('');
+}
+
+function renderStart() {
+  const ready = exam.ready;
+  $('#q').innerHTML = `
+    <h2>Mock ${exam.mock} · before you start</h2>
+    <p>${exam.questions.length} tasks · ${exam.duration_min} minutes. The terminal on the right is your base machine
+    <code>student@base</code>. Each task names the instance to <code>ssh</code> into.
+    Return with <code>exit</code> before switching to another instance.</p>
+    <p>On every instance: <code>sudo -i</code> for root, <code>k</code> is aliased to kubectl with completion.
+    Answer files go into <code>/home/student/answers/</code> on the instance the task names.
+    Docs: kubernetes.io/docs, helm.sh/docs, gateway-api.sigs.k8s.io and the links at the top of each task (open them in another browser tab).</p>
+    <p>Clipboard like a remote desktop: copy from the task (select + Ctrl+C, or click a <code>code</code> snippet)
+    and paste into the terminal with <b>Ctrl+Shift+V</b> (also on macOS) or <b>right-click → Paste</b>. Ctrl+V and Cmd+V don't paste there. Text inside the terminal:
+    select it, then paste it with the <b>middle mouse button</b>. It never goes to your clipboard.</p>
+    <p>Each task has its own stopwatch (⏱ at the bottom). It runs only while that task is open,
+    pauses when you switch, and carries on when you come back.</p>
+    <p><b>Tip:</b> first pass = quick wins. Move on from anything that isn't coming together after its target time and come back later.
+    Before leaving a task, check that the object exists in the namespace the task names.</p>
+    ${exam.preparing ? `<p class="bad">Mock ${exam.mock} is being prepared (about 5–10 minutes). This page updates by itself.</p>`
+      : ready ? '<p><button class="primary" id="start">Start the 120-minute timer</button></p>'
+      : '<p class="bad">The environment is still being prepared. Reload this page in a minute.</p>'}`;
+  if (ready) $('#start').onclick = async () => { exam.state = await api('/api/start', 'POST'); render(); };
+}
+
+async function prepare(m, text) {
+  if (!confirm(text)) return;
+  const r = await fetch(`/api/mock/${m}`, { method: 'POST' });
+  if (!r.ok) return toast('Not possible right now', 2500);
+  $('#overlay').style.display = 'none';
+  await load();
+}
+$('#btnAgain').onclick = () => prepare(exam.mock, `Start Mock ${exam.mock} again?\n\nEvery task is set up fresh, which resets your work in the clusters. Your saved scores are kept.`);
+$('#btnSwitch').onclick = () => prepare(other(), `Switch to Mock ${other()}?\n\nIts tasks are set up on the same clusters (about 5–10 minutes). Your saved scores are kept.`);
+
+function show(i) {
+  cur = Math.max(0, Math.min(exam.questions.length - 1, i));
+  const q = exam.questions[cur];
+  if (q.n !== tActive) { flushTime(false); tActive = q.n; tMark = Date.now(); tPaused = false; }
+  fillSelect();
+  $('#sel').value = cur;
+  qtick();
+  $('#q').innerHTML = `<div class="docs">${q.docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener">${d.label}</a>`).join('')}</div>
+    <h2>${lbl(q)} | ${q.title}</h2>${q.host ? `<div class="instance">Instance: <code>ssh ${q.host}</code></div>` : ''}${q.html}<div id="checkresult"></div>`;
+  $('#check').style.display = ended() ? '' : 'none';
+  $('#flag').textContent = flags[q.n] ? '⚑ Unflag' : '⚑ Flag this';
+  $('#flag').className = flags[q.n] ? 'flagged' : '';
+  const f = exam.questions.filter(x => flags[x.n]).map(shortLbl);
+  $('#flaghint').textContent = f.length ? 'Flagged: ' + f.join(', ') : '';
+  $('#q').scrollTop = 0;
+}
+
+$('#sel').onchange = e => show(+e.target.value);
+$('#prev').onclick = () => show(cur - 1);
+$('#next').onclick = () => show(cur + 1);
+$('#flag').onclick = () => { const n = exam.questions[cur].n; flags[n] = !flags[n]; saveFlags(); render(); };
+$('#check').onclick = async () => {
+  const q = exam.questions[cur], box = $('#checkresult');
+  box.innerHTML = '<p class="hint">Checking…</p>';
+  box.scrollIntoView();
+  const r = await api(`/api/check/${q.n}`, 'POST');
+  if (exam.questions[cur] !== q) return;
+  box.innerHTML = `<hr><h2>Result: ${r.got}/${r.of}</h2>
+    <ul style="list-style:none;padding:0">${r.checks.map(c => `<li><span class="${c.ok ? 'ok' : 'bad'}">${c.ok ? '✔' : '✘'}</span> ${c.text}
+      ${!c.ok && c.hint ? `<div class="hint" style="margin-left:18px">${c.hint.replace(/</g, '&lt;')}</div>` : ''}</li>`).join('')}</ul>
+    <details><summary>Solution and explanation</summary>${r.solution}</details>`;
+  box.scrollIntoView();
+};
+$('#q').addEventListener('click', e => {
+  if (e.target.tagName === 'CODE') { navigator.clipboard.writeText(e.target.innerText).then(() => toast('Copied')); }
+});
+$('#btnEnd').onclick = async () => {
+  if (!confirm('End this mock now and grade it?')) return;
+  exam.state = await api('/api/end', 'POST'); await load(); showResults(true);
+};
+$('#btnResults').onclick = () => showResults(false);
+
+function tick() {
+  if (!exam) return;
+  qtick();
+  const bar = $('#timer .fill'), label = $('#timer .label');
+  if (!started()) { bar.style.width = '100%'; label.textContent = exam.duration_min + ' minutes'; return; }
+  const total = exam.duration_min * 60;
+  const end = (exam.state.ended_at || (Date.now() + exam.offset) / 1000);
+  const left = Math.max(0, total - (end - exam.state.started_at));
+  bar.style.width = (100 * left / total) + '%';
+  bar.style.background = left < 600 ? 'var(--bar-late)' : left < 1800 ? 'var(--bar-warn)' : 'var(--bar-ok)';
+  label.textContent = ended() ? 'Mock ended' : Math.ceil(left / 60) + ' minutes';
+  $('#status').textContent = ended() ? '' : `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')} left`;
+  if (left <= 0 && !ended()) {
+    api('/api/end', 'POST').then(async s => { exam.state = s; await load(); showResults(true); });
+  }
+}
+setInterval(tick, 1000);
+
+async function showResults(run) {
+  const ov = $('#overlay'), box = $('#results');
+  ov.style.display = 'block';
+  let r = run ? null : await api('/api/results/latest');
+  if (!r || !r.questions) {
+    box.innerHTML = '<div class="card center">Grading all tasks… this takes 1–3 minutes.</div>';
+    r = await api('/api/score', 'POST');
+  }
+  const used = r.started_at && r.ended_at ? Math.round((r.ended_at - r.started_at) / 60) + ' min used' : '';
+  box.innerHTML = `
+    <div class="card"><div style="display:flex;gap:12px;align-items:center">
+      <div><div class="big">Mock ${r.mock || exam.mock}: ${r.got} / ${r.of} · ${r.percent} %</div>
+      <div class="hint">graded ${r.time} ${used ? '· ' + used : ''} · saved in exam/results</div></div>
+      <span style="flex:1"></span>
+      <button id="regrade">Grade again</button><button id="back" class="primary">Back to the terminal</button></div></div>
+    <div class="card"><table><tr><th>#</th><th>Topic</th><th>Instance</th><th>Score</th><th>Time</th></tr>
+      ${r.questions.map(q => `<tr><td>${shortLbl(q)}</td><td><a href="#q${q.n}">${q.title}</a></td><td>${q.host}</td>
+        <td class="${q.got === q.of ? 'ok' : q.got === 0 ? 'bad' : ''}">${q.got}/${q.of}</td><td>${q.seconds ? fmt(q.seconds) : '–'}</td></tr>`).join('')}</table></div>
+    ${r.questions.map(q => {
+      const sol = (exam.questions.find(x => x.n === q.n) || {}).solution || '';
+      return `<div class="card" id="q${q.n}"><h2 style="margin-top:0">${lbl(q)} | ${q.title} — ${q.got}/${q.of}</h2>
+        <ul style="list-style:none;padding:0">${q.checks.map(c => `<li><span class="${c.ok ? 'ok' : 'bad'}">${c.ok ? '✔' : '✘'}</span> ${c.text}
+          ${!c.ok && c.hint ? `<div class="hint" style="margin-left:18px">${c.hint.replace(/</g, '&lt;')}</div>` : ''}</li>`).join('')}</ul>
+        ${sol ? `<details><summary>Solution and explanation</summary>${sol}</details>` : ''}</div>`;
+    }).join('')}`;
+  $('#back').onclick = () => ov.style.display = 'none';
+  $('#regrade').onclick = () => showResults(true);
+}
+
+load();
+</script>
+</body>
+</html>

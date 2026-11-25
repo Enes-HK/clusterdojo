@@ -1,0 +1,9 @@
+# Exam shell setup (appended to every user's ~/.bashrc)
+EXAM_HOST=$(cat /etc/exam-name 2>/dev/null || hostname)
+PS1='\[\e[1;32m\]\u@'"$EXAM_HOST"'\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
+export EDITOR=vim
+if command -v kubectl >/dev/null 2>&1; then
+  alias k=kubectl
+  source <(kubectl completion bash)
+  complete -o default -F __start_kubectl k
+fi

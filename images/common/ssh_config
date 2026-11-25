@@ -1,0 +1,24 @@
+# Exam instance aliases: "ssh dojo1" lands on that cluster's control plane, "ssh dojo1-node1" on its first worker.
+Host dojo1
+  HostName dojo1-control-plane
+Host dojo1-node1
+  HostName dojo1-worker
+Host dojo1-node2
+  HostName dojo1-worker2
+Host dojo2
+  HostName dojo2-control-plane
+Host dojo2-node1
+  HostName dojo2-worker
+Host dojo3
+  HostName dojo3-control-plane
+Host dojo3-node1
+  HostName dojo3-worker
+Host dojo4
+  HostName dojo4-control-plane
+
+Host *
+  User student
+  IdentityFile ~/.ssh/id_ed25519
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR

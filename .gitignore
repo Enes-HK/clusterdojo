@@ -1,0 +1,10 @@
+# generated at start / per user
+images/keys/
+exam/state/
+exam/results/
+exam/kubeconfigs/*
+!exam/kubeconfigs/.gitkeep
+exam/charts-repo/*
+!exam/charts-repo/.gitkeep
+__pycache__/
+*.stackdump
