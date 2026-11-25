@@ -152,9 +152,9 @@ $('#qreset').onclick = () => {
 
 async function load() {
   exam = await api('/api/exam');
-  // while a mock is being prepared, look again every 10 seconds
+  // while the clusters are being set up or a mock is being prepared, look again every 10 seconds
   clearTimeout(load.poll);
-  if (exam.preparing) load.poll = setTimeout(load, 10000);
+  if (exam.preparing || !exam.ready) load.poll = setTimeout(load, 10000);
   loadFlags();
   exam.offset = exam.now * 1000 - Date.now();
   qtimes = exam.state.qtimes || {};
@@ -172,7 +172,8 @@ function render() {
   $('#btnResults').style.display = e ? '' : 'none';
   $('#btnAgain').style.display = e && !exam.preparing ? '' : 'none';
   $('#btnAgain').textContent = `Mock ${exam.mock} again`;
-  $('#btnSwitch').style.display = (e || !s) && !exam.preparing ? '' : 'none';
+  // hidden during the first cluster setup too (not ready, nothing preparing): a mock setup must not run alongside it
+  $('#btnSwitch').style.display = (e || !s) && exam.ready ? '' : 'none';
   $('#btnSwitch').textContent = `Switch to Mock ${other()}`;
   if (!s) return renderStart();
   show(cur);
@@ -202,7 +203,7 @@ function renderStart() {
     Before leaving a task, check that the object exists in the namespace the task names.</p>
     ${exam.preparing ? `<p class="bad">Mock ${exam.mock} is being prepared (about 5–10 minutes). This page updates by itself.</p>`
       : ready ? '<p><button class="primary" id="start">Start the 120-minute timer</button></p>'
-      : '<p class="bad">The environment is still being prepared. Reload this page in a minute.</p>'}`;
+      : '<p class="bad">The clusters are being set up (first start about 10–15 minutes). This page updates by itself.</p>'}`;
   if (ready) $('#start').onclick = async () => { exam.state = await api('/api/start', 'POST'); render(); };
 }
 
